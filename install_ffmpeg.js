@@ -21,6 +21,7 @@
 
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 const util = require('util');
 const https = require('https');
 const cp = require('child_process');
@@ -76,15 +77,16 @@ async function getHTML(url, name) {
   });
 }
 
-async function inflate(rs, folder, name) {
+async function inflate(rs, folder, folder_name, name) {
   const unzip = require('unzipper');
-  const directory = await unzip.Open.file(`${folder}/${name}.zip`);
+  const zip_path = `${folder}/${folder_name}/${name}.zip`
+  const directory = await unzip.Open.file(zip_path);
   const directoryName = directory.files[0].path;
   return new Promise((comp, err) => {
-    console.log(`Unzipping '${folder}/${name}.zip'.`);
-    rs.pipe(unzip.Extract({ path: folder }).on('close', () => {
-      fs.rename(`./${folder}/${directoryName}`, `./${folder}/${name}`, () => {
-        console.log(`Unzipping of '${folder}/${name}.zip' completed.`);
+    console.log(`Unzipping '${zip_path}'.`);
+    rs.pipe(unzip.Extract({ path: folder_name }).on('close', () => {
+      fs.rename(`./${folder_name}/${directoryName}`, `./${folder_name}/${name}`, () => {
+        console.log(`Unzipping of '${folder_name}/${name}.zip' completed.`);
         comp();
       });
     }));
@@ -101,7 +103,7 @@ async function win32() {
   });
   
   const ffmpegFilename = 'ffmpeg-4.x-win64-shared';
-  await access(`ffmpeg/${ffmpegFilename}`, fs.constants.R_OK).catch(async () => {
+  async function downloadFromGithub() {
     const html = await getHTML('https://github.com/BtbN/FFmpeg-Builds/wiki/Latest', 'latest autobuilds');
     const htmlStr = html.toString('utf-8');
     const autoPos = htmlStr.indexOf('<p><a href=');
@@ -122,10 +124,29 @@ async function win32() {
           await get(ws_shared, redirectURL, `${ffmpegFilename}.zip`);
         } else console.error(err);
       });
+  }
 
+  await access(`ffmpeg/${ffmpegFilename}`, fs.constants.R_OK).catch(async () => {
     await exec('npm install unzipper --no-save');
-    let rs_shared = fs.createReadStream(`ffmpeg/${ffmpegFilename}.zip`);
-    await inflate(rs_shared, 'ffmpeg', `${ffmpegFilename}`);
+    let current_dirname = __dirname;
+    for (let i = 0; i < 3; ++i) {
+      let failed = true;
+      current_dirname = path.join(current_dirname, '..');
+      try {
+        const file_path = path.join(current_dirname, `ffmpeg/${ffmpegFilename}.zip`);
+        const statInfo = await fs.promises.stat(file_path);
+        if (statInfo.size > 1024 * 1024) {
+          const rs_shared = fs.createReadStream(file_path);
+          await inflate(rs_shared, current_dirname, 'ffmpeg', `${ffmpegFilename}`);
+          failed = false;
+        }
+      } catch (error) {
+        console.log(error);
+      }
+      if (!failed) {
+        break;
+      }
+    }
   });
 }
 
