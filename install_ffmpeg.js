@@ -102,16 +102,7 @@ async function win32() {
   
   const ffmpegFilename = 'ffmpeg-4.3-win64-shared';
   await access(`ffmpeg/${ffmpegFilename}`, fs.constants.R_OK).catch(async () => {
-    const html = await getHTML('https://github.com/BtbN/FFmpeg-Builds/wiki/Latest', 'latest autobuilds');
-    const htmlStr = html.toString('utf-8');
-    const autoPos = htmlStr.indexOf('<p><a href=');
-    const endPos = htmlStr.indexOf('</div>', autoPos);
-    const autoStr = htmlStr.substring(autoPos, endPos);
-    const sharedEndPos = autoStr.lastIndexOf('">win64-gpl-shared-4.3');
-    const startStr = '<p><a href="';
-    const sharedStartPos = autoStr.lastIndexOf(startStr, sharedEndPos) + startStr.length;
-    const downloadSource = autoStr.substring(sharedStartPos, sharedEndPos);
-
+    const downloadSource = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-04-07-12-39/ffmpeg-n4.3.2-163-g6c414cf8f7-win64-gpl-shared-4.3.zip';
     let ws_shared = fs.createWriteStream(`ffmpeg/${ffmpegFilename}.zip`);
     await get(ws_shared, downloadSource, `${ffmpegFilename}.zip`)
       .catch(async (err) => {
